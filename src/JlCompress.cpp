@@ -25,6 +25,7 @@ see quazip/(un)zip.h files for details. Basically it's the zlib license.
 
 #include "JlCompress.h"
 #include <QDebug>
+#include <qdir.h>
 
 static bool copyData(QIODevice &inFile, QIODevice &outFile)
 {
@@ -86,7 +87,7 @@ bool JlCompress::compressSubDir(QuaZip* zip, QString dir, QString origDir, bool 
 
     // Controllo la cartella
     QDir directory(dir);
-    if (!directory.exists()) return false;
+    if ( !directory.exists()) return false;
 
     QDir origDirectory(origDir);
     if (dir != origDir) {
@@ -99,18 +100,25 @@ bool JlCompress::compressSubDir(QuaZip* zip, QString dir, QString origDir, bool 
     }
 
 
+//    qDebug()<<directory.absolutePath();
     // Se comprimo anche le sotto cartelle
     if (recursive) {
         // Per ogni sotto cartella
-        QFileInfoList files = directory.entryInfoList(QDir::AllDirs|QDir::NoDotAndDotDot|filters);
+        QFileInfoList files = directory.entryInfoList(QDir::AllDirs |QDir::NoDotAndDotDot|filters);
         Q_FOREACH (QFileInfo file, files) {
+            //THE BUG you can repeat
+            //BUG is Dead cycle: for [ (file.isDir() && (file.fileName()=="." || file.fileName()=="..")) ]
+            //BUG is no compress: for !file.isDir()
+            if(!file.isDir() || (file.isDir() && (file.fileName()=="." || file.fileName()=="..")))
+                continue;
             // Comprimo la sotto cartella
             if(!compressSubDir(zip,file.absoluteFilePath(),origDir,recursive,filters)) return false;
         }
     }
-
+//    qDebug()<<"来到了吗？";
     // Per ogni file nella cartella
     QFileInfoList files = directory.entryInfoList(QDir::Files|filters);
+    qDebug()<<directory.absolutePath()<<": all files :"<<files;
     Q_FOREACH (QFileInfo file, files) {
         // Se non e un file o e il file compresso che sto creando
         if(!file.isFile()||file.absoluteFilePath()==zip->getZipName()) continue;
